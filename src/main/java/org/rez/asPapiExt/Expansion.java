@@ -40,6 +40,7 @@ public class Expansion extends PlaceholderExpansion {
     public String onPlaceholderRequest(Player player, String identifier) {
         if (player == null) return null;
 
+        // Stev functionality:
 
 //        // Player-Specific Placeholders
 //        if (identifier.equals("own_region_count")) {
@@ -82,6 +83,8 @@ public class Expansion extends PlaceholderExpansion {
 
             return String.valueOf(areaShop.getFileManager().getRents().size() - count);
         }
+
+
 
         // Total regions up for sale %areashop_avaliable_buys%
         if (identifier.equals("available_buys")) {
