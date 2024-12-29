@@ -1,0 +1,4 @@
+name: AsPapiExt
+version: '1.0-SNAPSHOT'
+main: org.rez.asPapiExt.AsPapiExt
+api-version: '1.18'
