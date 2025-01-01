@@ -6,12 +6,13 @@ import me.wiefferink.areashop.regions.BuyRegion;
 import me.wiefferink.areashop.regions.RentRegion;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class Expansion extends PlaceholderExpansion {
     private final AreaShop areaShop;
 
+    // Constructor to initialize the AreaShop instance
     public Expansion(AreaShop areaShop) {
         this.areaShop = areaShop;
     }
@@ -33,424 +34,179 @@ public class Expansion extends PlaceholderExpansion {
 
     @Override
     public boolean persist() {
-        return true; // Required for PlaceholderAPI to keep the expansion active
+        // Ensure the expansion remains active between reloads
+        return true;
     }
+
     @Override
     public String onPlaceholderRequest(Player player, String identifier) {
-        if (player == null) return null;
+        if (player == null) return null; // Return null if the player is invalid
 
-        // Placeholder: %areashop_num_regions_for_rent%
-        // Number of rent regions available to be rented by a tenant
-        if (identifier.equals("num_regions_for_rent")) {
-            int count = 0;
-            for (int i = 0; i  <areaShop.getFileManager().getRents().size(); i++) {
-                RentRegion thisRegion = areaShop.getFileManager().getRents().get(i);
-                if (!thisRegion.isRented()) {
-                    count++;
-                }
-            }
+        // Handle various placeholders based on the identifier
+        switch (identifier) {
+            case "num_regions_for_rent":
+                // Count the number of unrented regions
+                return String.valueOf(countRegions(areaShop.getFileManager().getRents(), RentRegion::isRented, false));
 
-            return String.valueOf(count);
+            case "num_regions_for_sale":
+                // Count the number of unsold regions
+                return String.valueOf(countRegions(areaShop.getFileManager().getBuys(), BuyRegion::isSold, false));
 
+            case "num_regions_available":
+                // Count total available (unsold + unrented) regions
+                return String.valueOf(
+                        countRegions(areaShop.getFileManager().getBuys(), BuyRegion::isSold, false) +
+                                countRegions(areaShop.getFileManager().getRents(), RentRegion::isRented, false)
+                );
+
+            case "num_regions":
+                // Return the total number of regions
+                return String.valueOf(areaShop.getFileManager().getRegions().size());
+
+            case "num_regions_bought":
+                // Count the number of regions that have been sold
+                return String.valueOf(countRegions(areaShop.getFileManager().getBuys(), BuyRegion::isSold, true));
+
+            case "num_regions_rented":
+                // Count the number of regions currently rented
+                return String.valueOf(countRegions(areaShop.getFileManager().getRents(), RentRegion::isRented, true));
+
+            case "num_regions_occupied":
+                // Count all occupied regions (rented + sold)
+                return String.valueOf(
+                        countRegions(areaShop.getFileManager().getBuys(), BuyRegion::isSold, true) +
+                                countRegions(areaShop.getFileManager().getRents(), RentRegion::isRented, true)
+                );
+
+            case "list_regions_for_rent":
+                // List names of all unrented regions
+                return listRegionNames(areaShop.getFileManager().getRents(), RentRegion::isRented, false);
+
+            case "list_regions_for_sale":
+                // List names of all unsold regions
+                return listRegionNames(areaShop.getFileManager().getBuys(), BuyRegion::isSold, false);
+
+            case "list_regions_available":
+                // List all available (unsold + unrented) regions
+                return String.join(", ",
+                        listRegionNames(areaShop.getFileManager().getBuys(), BuyRegion::isSold, false),
+                        listRegionNames(areaShop.getFileManager().getRents(), RentRegion::isRented, false)
+                );
+
+            case "num_regions_bought_own":
+                // Count regions owned by the player
+                return String.valueOf(countRegions(areaShop.getFileManager().getBuys(), b -> b.isOwner(player), true));
+
+            case "num_regions_rented_own":
+                // Count regions rented by the player
+                return String.valueOf(countRegions(areaShop.getFileManager().getRents(), r -> r.isRenter(player), true));
+
+            case "num_regions_occupied_own":
+                // Count regions owned or rented by the player
+                return String.valueOf(
+                        countRegions(areaShop.getFileManager().getBuys(), b -> b.isOwner(player), true) +
+                                countRegions(areaShop.getFileManager().getRents(), r -> r.isRenter(player), true)
+                );
+
+            case "list_regions_bought_own":
+                // List names of regions owned by the player
+                return listRegionNames(areaShop.getFileManager().getBuys(), b -> b.isOwner(player), true);
+
+            case "list_regions_rented_own":
+                // List names of regions rented by the player
+                return listRegionNames(areaShop.getFileManager().getRents(), r -> r.isRenter(player), true);
+
+            case "list_regions_occupied_own":
+                // List names of regions owned or rented by the player
+                return String.join(", ",
+                        listRegionNames(areaShop.getFileManager().getBuys(), b -> b.isOwner(player), true),
+                        listRegionNames(areaShop.getFileManager().getRents(), r -> r.isRenter(player), true)
+                );
+
+            case "num_price_owed":
+                // Calculate total rent owed by the player
+                return String.valueOf(calculateTotalPrice(areaShop.getFileManager().getRents(), r -> r.isRenter(player)));
+
+            case "num_price_payed":
+                // Calculate total price paid by the player for owned regions
+                return String.valueOf(calculateTotalPrice(areaShop.getFileManager().getBuys(), b -> b.isOwner(player)));
+
+            case "list_price_owed":
+                // List prices of rented regions
+                return listPrices(areaShop.getFileManager().getRents(), r -> r.isRenter(player));
+
+            case "list_price_payed":
+                // List prices of owned regions
+                return listPrices(areaShop.getFileManager().getBuys(), b -> b.isOwner(player));
+
+            case "list_price":
+                // List prices of all owned and rented regions
+                return String.join(", ",
+                        listPrices(areaShop.getFileManager().getBuys(), b -> b.isOwner(player)),
+                        listPrices(areaShop.getFileManager().getRents(), r -> r.isRenter(player))
+                );
+
+            default:
+                return null; // Return null if the placeholder is not recognized
         }
-
-        // Placeholder: %areashop_num_regions_for_sale%
-        // Number of buy regions available to be purchased by a buyer
-        if (identifier.equals("num_regions_for_sale")) {
-            int count = 0;
-            for (int i = 0; i  <areaShop.getFileManager().getBuys().size(); i++) {
-                BuyRegion thisRegion = areaShop.getFileManager().getBuys().get(i);
-                if (!thisRegion.isSold()) {
-                    count++;
-                }
-            }
-
-            return String.valueOf(count);
-        }
-
-        // Placeholder: %areashop_num_regions_available%
-        // Number of buy and rent regions available to be bought or rented
-        if (identifier.equals("num_regions_available")) {
-            int count = 0;
-            for (int i = 0; i  <areaShop.getFileManager().getBuys().size(); i++) {
-                BuyRegion thisRegion = areaShop.getFileManager().getBuys().get(i);
-                if (!thisRegion.isSold()) {
-                    count++;
-                }
-            }
-
-            for (int i = 0; i  <areaShop.getFileManager().getRents().size(); i++) {
-                RentRegion thisRegion = areaShop.getFileManager().getRents().get(i);
-                if (!thisRegion.isRented()) {
-                    count++;
-                }
-            }
-
-            return String.valueOf(count);
-
-        }
-
-        // Placeholder: %areashop_num_regions%
-        // Total number of regions
-        if (identifier.equals("num_regions")) {
-            return String.valueOf(areaShop.getFileManager().getRegions().size());
-        }
-
-        // Placeholder: %areashop_num_regions_bought%
-        // Number of buy regions that currently have an owner
-        if (identifier.equals("num_regions_bought")) {
-            int count = 0;
-            for (int i = 0; i  <areaShop.getFileManager().getBuys().size(); i++) {
-                BuyRegion thisRegion = areaShop.getFileManager().getBuys().get(i);
-                if (thisRegion.isSold()) {
-                    count++;
-                }
-            }
-
-            return String.valueOf(count);
-        }
-
-        // Placeholder: %areashop_num_regions_rented%
-        // Number of rental regions that currently have a tenant
-        if (identifier.equals("num_regions_rented")) {
-            int count = 0;
-            for (int i = 0; i  <areaShop.getFileManager().getRents().size(); i++) {
-                RentRegion thisRegion = areaShop.getFileManager().getRents().get(i);
-                if (thisRegion.isRented()) {
-                    count++;
-                }
-            }
-
-            return String.valueOf(count);
-
-        }
-
-        // Placeholder: %areashop_num_regions_occupied%
-        // Number of buy and rent regions with an owner or tenant
-        if (identifier.equals("num_regions_occupied")) {
-            int count = 0;
-            for (int i = 0; i  <areaShop.getFileManager().getBuys().size(); i++) {
-                BuyRegion thisRegion = areaShop.getFileManager().getBuys().get(i);
-                if (thisRegion.isSold()) {
-                    count++;
-                }
-            }
-
-            for (int i = 0; i  <areaShop.getFileManager().getRents().size(); i++) {
-                RentRegion thisRegion = areaShop.getFileManager().getRents().get(i);
-                if (thisRegion.isRented()) {
-                    count++;
-                }
-            }
-
-            return String.valueOf(count);
-
-        }
-
-        // Placeholder: %areashop_list_regions_for_rent%
-        // List of rent regions available to be rented
-        if (identifier.equals("list_regions_for_rent")) {
-            // Initialize a list to store region names
-            List<String> availableRegions = new ArrayList<>();
-
-            // Loop through all rent regions
-            for (int i = 0; i < areaShop.getFileManager().getRents().size(); i++) {
-                RentRegion thisRegion = areaShop.getFileManager().getRents().get(i);
-
-                // Check if the region is not rented
-                if (!thisRegion.isRented()) {
-                    availableRegions.add(thisRegion.getName()); // Add region name to the list
-                }
-            }
-
-            // Convert the list to a comma-separated string and return it
-            return String.join(", ", availableRegions);
-        }
-
-        // Placeholder: %areashop_list_regions_for_sale%
-        // List of buy regions available to be purchased
-        if (identifier.equals("list_regions_for_sale")) {
-            // Initialize a list to store region names
-            List<String> availableRegions = new ArrayList<>();
-
-            // Loop through all rent regions
-            for (int i = 0; i < areaShop.getFileManager().getBuys().size(); i++) {
-                BuyRegion thisRegion = areaShop.getFileManager().getBuys().get(i);
-
-                // Check if the region is not rented
-                if (!thisRegion.isSold()) {
-                    availableRegions.add(thisRegion.getName()); // Add region name to the list
-                }
-            }
-
-            // Convert the list to a comma-separated string and return it
-            return String.join(", ", availableRegions);
-        }
-
-        // Placeholder: %areashop_list_regions_available%
-        // List of buy or rent regions available to be purchased or rented
-        if (identifier.equals("list_regions_available")) {
-            // Initialize a list to store region names
-            List<String> availableRegions = new ArrayList<>();
-
-            // Loop through all rent regions
-            for (int i = 0; i < areaShop.getFileManager().getBuys().size(); i++) {
-                BuyRegion thisRegion = areaShop.getFileManager().getBuys().get(i);
-
-                // Check if the region is not rented
-                if (!thisRegion.isSold()) {
-                    availableRegions.add(thisRegion.getName()); // Add region name to the list
-                }
-            }
-
-            // Loop through all rent regions
-            for (int i = 0; i < areaShop.getFileManager().getRents().size(); i++) {
-                RentRegion thisRegion = areaShop.getFileManager().getRents().get(i);
-
-                // Check if the region is not rented
-                if (!thisRegion.isRented()) {
-                    availableRegions.add(thisRegion.getName()); // Add region name to the list
-                }
-            }
-
-            // Convert the list to a comma-separated string and return it
-            return String.join(", ", availableRegions);
-
-
-        }
-
-        // Placeholder: %areashop_list_regions%
-        // List of all regions that can be bought or rented
-        if (identifier.equals("list_regions")) {
-            return String.valueOf(areaShop.getFileManager().getRegions());
-        }
-
-        // Placeholder: %areashop_num_regions_bought_own%
-        // Number of buy regions the player owns
-        if (identifier.equals("num_regions_bought_own")) {
-            int count = 0;
-            for (int i = 0; i <areaShop.getFileManager().getBuys().size(); i++) {
-                BuyRegion thisRegion = areaShop.getFileManager().getBuys().get(i);
-                if (thisRegion.isOwner(player)) {
-                    count++;
-                }
-            }
-            return String.valueOf(count);
-        }
-
-        // Placeholder: %areashop_num_regions_rented_own%
-        // Number of rental regions the player rents
-        if (identifier.equals("num_regions_rented_own")) {
-            int count = 0;
-            for (int i = 0; i <areaShop.getFileManager().getRents().size(); i++) {
-                RentRegion thisRegion = areaShop.getFileManager().getRents().get(i);
-                if (thisRegion.isRenter(player)) {
-                    count++;
-                }
-            }
-            return String.valueOf(count);
-        }
-
-        // Placeholder: %areashop_num_regions_occupied_own%
-        // Number of regions the player buys or rents
-        if (identifier.equals("num_regions_occupied_own")) {
-            int count = 0;
-            for (int i = 0; i <areaShop.getFileManager().getRents().size(); i++) {
-                RentRegion thisRegion = areaShop.getFileManager().getRents().get(i);
-                if (thisRegion.isRenter(player)) {
-                    count++;
-                }
-            }
-            for (int i = 0; i <areaShop.getFileManager().getBuys().size(); i++) {
-                BuyRegion thisRegion = areaShop.getFileManager().getBuys().get(i);
-                if (thisRegion.isOwner(player)) {
-                    count++;
-                }
-            }
-
-            return String.valueOf(count);
-
-        }
-
-        // Placeholder: %areashop_list_regions_bought_own%
-        // List of the buy regions the player owns
-        if (identifier.equals("list_regions_bought_own")) {
-            // Initialize a list to store region names
-            List<String> availableRegions = new ArrayList<>();
-
-            // Loop through all buy regions
-            for (int i = 0; i < areaShop.getFileManager().getBuys().size(); i++) {
-                BuyRegion thisRegion = areaShop.getFileManager().getBuys().get(i);
-
-                // Check if the region is not rented
-                if (thisRegion.isOwner(player)) {
-                    availableRegions.add(thisRegion.getName()); // Add region name to the list
-                }
-            }
-            // Convert the list to a comma-separated string and return it
-            return String.join(", ", availableRegions);
-        }
-
-        // Placeholder: %areashop_list_regions_rented_own%
-        // List of rental regions the player rents
-        if (identifier.equals("list_regions_rented_own")) {
-            // Initialize a list to store region names
-            List<String> availableRegions = new ArrayList<>();
-
-            // Loop through all rent regions
-            for (int i = 0; i < areaShop.getFileManager().getRents().size(); i++) {
-                RentRegion thisRegion = areaShop.getFileManager().getRents().get(i);
-
-                // Check if the region is not rented
-                if (thisRegion.isRenter(player)) {
-                    availableRegions.add(thisRegion.getName()); // Add region name to the list
-                }
-            }
-            // Convert the list to a comma-separated string and return it
-            return String.join(", ", availableRegions);
-
-        }
-
-        // Placeholder: %areashop_list_regions_occupied_own%
-        // List of regions the player buys or rents
-        if (identifier.equals("list_regions_occupied_own")) {
-            // Initialize a list to store region names
-            List<String> availableRegions = new ArrayList<>();
-
-            // Loop through all buy regions
-            for (int i = 0; i < areaShop.getFileManager().getBuys().size(); i++) {
-                BuyRegion thisRegion = areaShop.getFileManager().getBuys().get(i);
-
-                // Check if the region is not rented
-                if (thisRegion.isOwner(player)) {
-                    availableRegions.add(thisRegion.getName()); // Add region name to the list
-                }
-            }
-            for (int i = 0; i < areaShop.getFileManager().getRents().size(); i++) {
-                RentRegion thisRegion = areaShop.getFileManager().getRents().get(i);
-
-                // Check if the region is not rented
-                if (thisRegion.isRenter(player)) {
-                    availableRegions.add(thisRegion.getName()); // Add region name to the list
-                }
-            }
-
-            // Convert the list to a comma-separated string and return it
-            return String.join(", ", availableRegions);
-
-        }
-
-        // Placeholder: %areashop_num_price_owed%
-        // Total amount player pays for all the regions they rent
-        if (identifier.equals("num_price_owed")) {
-            // Initialize a counter to add payed prices too
-            double payed = 0.0;
-
-            // Loop through all rent regions
-            for (int i = 0; i < areaShop.getFileManager().getRents().size(); i++) {
-                RentRegion thisRegion = areaShop.getFileManager().getRents().get(i);
-
-                // Check if the region is being rented to the player
-                if (thisRegion.isRenter(player)) {
-                    payed += thisRegion.getPrice();
-                }
-            }
-            // Convert the list to a comma-separated string and return it
-            return String.valueOf(payed);
-        }
-
-        // Placeholder: %areashop_num_price_payed%
-        // Total amount the player has paid for the regions they own
-        if (identifier.equals("num_price_payed")) {
-            // Initialize a counter to add payed prices too
-            double payed = 0.0;
-
-            // Loop through all rent regions
-            for (int i = 0; i < areaShop.getFileManager().getBuys().size(); i++) {
-                BuyRegion thisRegion = areaShop.getFileManager().getBuys().get(i);
-
-                // Check if the region is being rented to the player
-                if (thisRegion.isOwner(player)) {
-                    payed += thisRegion.getPrice();
-                }
-            }
-            // Convert the list to a comma-separated string and return it
-            return String.valueOf(payed);
-
-        }
-
-        // Placeholder: %areashop_list_price_owed%
-        // List of rent costs for regions rented by the player
-        if (identifier.equals("list_price_owed")) {
-            // Initialize a list to store region names
-            List<String> availableRegions = new ArrayList<>();
-
-            // Loop through all rent regions
-            for (int i = 0; i < areaShop.getFileManager().getRents().size(); i++) {
-                RentRegion thisRegion = areaShop.getFileManager().getRents().get(i);
-
-                // Check if the region is being rented to the player
-                if (thisRegion.isRenter(player)) {
-                    availableRegions.add(String.valueOf(thisRegion.getPrice())); // Add region name to the list
-                }
-            }
-            // Convert the list to a comma-separated string and return it
-            return String.join(", ", availableRegions);
-
-
-        }
-
-        // Placeholder: %areashop_list_price_payed%
-        // List of prices paid for regions bought by the player
-        if (identifier.equals("list_price_payed")) {
-            // Initialize a list to store region names
-            List<String> availableRegions = new ArrayList<>();
-
-            // Loop through all rent regions
-            for (int i = 0; i < areaShop.getFileManager().getBuys().size(); i++) {
-                BuyRegion thisRegion = areaShop.getFileManager().getBuys().get(i);
-
-                // Check if the region is being rented to the player
-                if (thisRegion.isOwner(player)) {
-                    availableRegions.add(String.valueOf(thisRegion.getPrice())); // Add region name to the list
-                }
-            }
-            // Convert the list to a comma-separated string and return it
-            return String.join(", ", availableRegions);
-
-        }
-
-        // Placeholder: %areashop_list_price%
-        // List of rent and purchase prices of regions rented and purchased by the player
-        if (identifier.equals("list_price")) {
-            // Initialize a list to store region names
-            List<String> availableRegions = new ArrayList<>();
-
-            // Loop through all rent regions
-            for (int i = 0; i < areaShop.getFileManager().getBuys().size(); i++) {
-                BuyRegion thisRegion = areaShop.getFileManager().getBuys().get(i);
-
-                // Check if the region is being rented to the player
-                if (thisRegion.isOwner(player)) {
-                    availableRegions.add(String.valueOf(thisRegion.getPrice())); // Add region name to the list
-                }
-            }
-
-            // Loop through all rent regions
-            for (int i = 0; i < areaShop.getFileManager().getRents().size(); i++) {
-                RentRegion thisRegion = areaShop.getFileManager().getRents().get(i);
-
-                // Check if the region is being rented to the player
-                if (thisRegion.isRenter(player)) {
-                    availableRegions.add(String.valueOf(thisRegion.getPrice())); // Add region name to the list
-                }
-            }
-
-            // Convert the list to a comma-separated string and return it
-            return String.join(", ", availableRegions);
-        }
-
-        return null; // Placeholder not recognized
     }
 
+    /**
+     * Counts regions based on a predicate condition.
+     *
+     * @param regions    List of regions to check
+     * @param predicate  Condition to test
+     * @param condition  Expected result of the predicate
+     * @param <T>        Region type
+     * @return Number of regions matching the condition
+     */
+    private <T> int countRegions(List<T> regions, java.util.function.Predicate<T> predicate, boolean condition) {
+        return (int) regions.stream().filter(region -> predicate.test(region) == condition).count();
+    }
+
+    /**
+     * Lists names of regions matching a predicate condition.
+     *
+     * @param regions    List of regions to check
+     * @param predicate  Condition to test
+     * @param condition  Expected result of the predicate
+     * @param <T>        Region type
+     * @return Comma-separated list of region names
+     */
+    private <T> String listRegionNames(List<T> regions, java.util.function.Predicate<T> predicate, boolean condition) {
+        return regions.stream()
+                .filter(region -> predicate.test(region) == condition)
+                .map(region -> region instanceof BuyRegion ? ((BuyRegion) region).getName() : ((RentRegion) region).getName())
+                .collect(Collectors.joining(", "));
+    }
+
+    /**
+     * Calculates the total price for regions matching a predicate condition.
+     *
+     * @param regions    List of regions to check
+     * @param predicate  Condition to test
+     * @param <T>        Region type
+     * @return Total price
+     */
+    private <T> double calculateTotalPrice(List<T> regions, java.util.function.Predicate<T> predicate) {
+        return regions.stream()
+                .filter(predicate)
+                .mapToDouble(region -> region instanceof BuyRegion ? ((BuyRegion) region).getPrice() : ((RentRegion) region).getPrice())
+                .sum();
+    }
+
+    /**
+     * Lists prices of regions matching a predicate condition.
+     *
+     * @param regions    List of regions to check
+     * @param predicate  Condition to test
+     * @param <T>        Region type
+     * @return Comma-separated list of region prices
+     */
+    private <T> String listPrices(List<T> regions, java.util.function.Predicate<T> predicate) {
+        return regions.stream()
+                .filter(predicate)
+                .map(region -> String.valueOf(region instanceof BuyRegion ? ((BuyRegion) region).getPrice() : ((RentRegion) region).getPrice()))
+                .collect(Collectors.joining(", "));
+    }
 }
