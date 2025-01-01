@@ -1,9 +1,15 @@
 package org.rez.asPapiExt;
 
+
+import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import me.wiefferink.areashop.AreaShop;
 import me.wiefferink.areashop.regions.BuyRegion;
+import me.wiefferink.areashop.regions.GeneralRegion;
 import me.wiefferink.areashop.regions.RentRegion;
+import me.wiefferink.areashop.tools.Utils;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
 import java.util.List;
@@ -44,6 +50,24 @@ public class Expansion extends PlaceholderExpansion {
 
         // Handle various placeholders based on the identifier
         switch (identifier) {
+
+            //TODO: Add rent time left in current region, cost of current region, owner of current region
+
+
+            // Placeholder: %areashop_current_region%
+            case "current_region":
+                // Get the player's current location
+                Location playerLocation = player.getLocation();
+
+                // Check which region the player is in
+                List<GeneralRegion> regions = areaShop.getFileManager().getRegions();
+                for (GeneralRegion region : regions) {
+                    if (region.getRegion().contains(playerLocation.getBlockX(), playerLocation.getBlockY(), playerLocation.getBlockZ())) {
+                        return region.getName(); // Return the region name
+                    }
+                }
+                return "";
+
             case "num_regions_for_rent":
                 // Count the number of unrented regions
                 return String.valueOf(countRegions(areaShop.getFileManager().getRents(), RentRegion::isRented, false));
